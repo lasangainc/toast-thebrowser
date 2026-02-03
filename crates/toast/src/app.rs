@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -36,6 +37,11 @@ impl App {
         let pipeline = RenderPipeline::new();
         let mut streamer = ScreenshotStreamer::new(browser, self.url.clone());
 
+        // Show loading message
+        renderer.clear()?;
+        print!("\x1b[{};{}H\x1b[1;37mtoasting...\x1b[0m", height / 2, (width / 2).saturating_sub(5));
+        std::io::stdout().flush()?;
+
         // Initialize the page
         streamer.initialize().await?;
 
@@ -51,6 +57,7 @@ impl App {
         // Channels for async pipeline
         let (screenshot_tx, mut screenshot_rx) = mpsc::channel(2);
         let (frame_tx, mut frame_rx) = mpsc::channel(1);
+        let (scroll_tx, mut scroll_rx) = mpsc::channel(10);
 
         // Screenshot capture task - runs at 15fps interval
         let screenshot_task = {
@@ -167,13 +174,13 @@ impl App {
             })
         };
 
-        info!("Rendering started. Use arrow keys to move cursor, Enter to click, Ctrl+C to exit.");
+        info!("Rendering started. Use arrow keys to move cursor, W/S to scroll, Enter to click, Ctrl+C to exit.");
 
         // Channel for shutdown signal and click events
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel(1);
         let (click_tx, mut click_rx) = mpsc::channel(10);
 
-        // Keyboard input task - handle arrow keys, Enter, and Ctrl+C
+        // Keyboard input task - handle arrow keys, W/S scroll, Enter, and Ctrl+C
         let keyboard_task = {
             let shutdown_tx = shutdown_tx.clone();
             let cursor_pos: Arc<Mutex<CursorPosition>> = Arc::clone(&cursor_pos);
@@ -189,6 +196,14 @@ impl App {
                                     info!("Ctrl+C detected from keyboard");
                                     let _ = shutdown_tx.send(()).await;
                                     break;
+                                }
+                                KeyCode::Char('w') | KeyCode::Char('W') => {
+                                    info!("W pressed - scrolling up");
+                                    let _ = scroll_tx.send(-300).await;
+                                }
+                                KeyCode::Char('s') | KeyCode::Char('S') => {
+                                    info!("S pressed - scrolling down");
+                                    let _ = scroll_tx.send(300).await;
                                 }
                                 KeyCode::Up => {
                                     if let Ok(mut pos) = cursor_pos.lock() {
@@ -255,6 +270,19 @@ impl App {
             })
         };
 
+        // Scroll handler task - sends scroll commands to the browser
+        let scroll_task = {
+            let streamer = Arc::clone(&streamer);
+            tokio::spawn(async move {
+                while let Some(delta) = scroll_rx.recv().await {
+                    info!("Scrolling by {} pixels", delta);
+                    if let Err(e) = streamer.scroll(delta).await {
+                        error!("Failed to scroll: {}", e);
+                    }
+                }
+            })
+        };
+
         // Wait for shutdown signal (from keyboard or Ctrl+C signal)
         tokio::select! {
             _ = shutdown_rx.recv() => {
@@ -276,6 +304,7 @@ impl App {
         drop(display_task);
         drop(keyboard_task);
         drop(click_task);
+        drop(scroll_task);
 
         Ok(())
     }

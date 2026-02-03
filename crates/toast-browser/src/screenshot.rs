@@ -154,4 +154,20 @@ impl ScreenshotStreamer {
             Err(anyhow::anyhow!("Page not initialized. Call initialize() first."))
         }
     }
+
+    /// Scroll the page by a given pixel amount
+    pub async fn scroll(&self, delta_y: i32) -> Result<()> {
+        if let Some(page) = &self.page {
+            // Use JavaScript to scroll - this is the most reliable method
+            let script = format!("window.scrollBy(0, {})", delta_y);
+            page.evaluate_expression(script)
+                .await
+                .context("Failed to execute scroll command")?;
+
+            tracing::info!("Scrolled by {} pixels", delta_y);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Page not initialized. Call initialize() first."))
+        }
+    }
 }
