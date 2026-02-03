@@ -1,0 +1,21 @@
+[package]
+name = "toast"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "toast"
+path = "src/main.rs"
+
+[dependencies]
+toast-core = { workspace = true }
+toast-browser = { workspace = true }
+toast-render = { workspace = true }
+toast-terminal = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+crossterm = { workspace = true }

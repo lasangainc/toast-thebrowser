@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/toast",
+    "crates/toast-browser",
+    "crates/toast-render",
+    "crates/toast-terminal",
+    "crates/toast-core",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["TOAST Contributors"]
+
+[workspace.dependencies]
+# Core
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+
+# Browser
+chromiumoxide = "0.5"
+futures = "0.3"
+
+# Image Processing
+image = { version = "0.24", features = ["png", "jpeg"] }
+fast_image_resize = "3"
+rayon = "1.8"
+
+# Terminal
+crossterm = "0.27"
+
+# Performance
+parking_lot = "0.12"
+bytes = "1"
+
+# Internal crates
+toast-core = { path = "crates/toast-core" }
+toast-browser = { path = "crates/toast-browser" }
+toast-render = { path = "crates/toast-render" }
+toast-terminal = { path = "crates/toast-terminal" }

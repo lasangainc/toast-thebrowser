@@ -1,0 +1,15 @@
+[package]
+name = "toast-render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+toast-core = { workspace = true }
+image = { workspace = true }
+fast_image_resize = { workspace = true }
+rayon = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+bytes = { workspace = true }
