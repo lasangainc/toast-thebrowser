@@ -57,7 +57,6 @@ impl App {
         // Channels for async pipeline
         let (screenshot_tx, mut screenshot_rx) = mpsc::channel(2);
         let (frame_tx, mut frame_rx) = mpsc::channel(1);
-        let (scroll_tx, mut scroll_rx) = mpsc::channel(10);
 
         // Screenshot capture task - runs at 15fps interval
         let screenshot_task = {
@@ -184,10 +183,11 @@ impl App {
         let keyboard_task = {
             let shutdown_tx = shutdown_tx.clone();
             let cursor_pos: Arc<Mutex<CursorPosition>> = Arc::clone(&cursor_pos);
+            let streamer = Arc::clone(&streamer);
             tokio::spawn(async move {
                 loop {
                     // Poll for events with timeout
-                    if let Ok(true) = event::poll(Duration::from_millis(100)) {
+                    if let Ok(true) = event::poll(Duration::from_millis(16)) {
                         if let Ok(Event::Key(key_event)) = event::read() {
                         // Only handle key press events, not release or repeat
                         if key_event.kind == KeyEventKind::Press {
@@ -198,12 +198,10 @@ impl App {
                                     break;
                                 }
                                 KeyCode::Char('w') | KeyCode::Char('W') => {
-                                    info!("W pressed - scrolling up");
-                                    let _ = scroll_tx.send(-300).await;
+                                    let _ = streamer.scroll(-400).await;
                                 }
                                 KeyCode::Char('s') | KeyCode::Char('S') => {
-                                    info!("S pressed - scrolling down");
-                                    let _ = scroll_tx.send(300).await;
+                                    let _ = streamer.scroll(400).await;
                                 }
                                 KeyCode::Up => {
                                     if let Ok(mut pos) = cursor_pos.lock() {
@@ -270,19 +268,6 @@ impl App {
             })
         };
 
-        // Scroll handler task - sends scroll commands to the browser
-        let scroll_task = {
-            let streamer = Arc::clone(&streamer);
-            tokio::spawn(async move {
-                while let Some(delta) = scroll_rx.recv().await {
-                    info!("Scrolling by {} pixels", delta);
-                    if let Err(e) = streamer.scroll(delta).await {
-                        error!("Failed to scroll: {}", e);
-                    }
-                }
-            })
-        };
-
         // Wait for shutdown signal (from keyboard or Ctrl+C signal)
         tokio::select! {
             _ = shutdown_rx.recv() => {
@@ -304,7 +289,6 @@ impl App {
         drop(display_task);
         drop(keyboard_task);
         drop(click_task);
-        drop(scroll_task);
 
         Ok(())
     }
